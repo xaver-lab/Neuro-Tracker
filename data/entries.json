@@ -1,0 +1,48 @@
+{
+  "2026-01-21": {
+    "date": "2026-01-21",
+    "severity": 2,
+    "foods": [
+      "Milchprodukte"
+    ],
+    "notes": null,
+    "skin_notes": "",
+    "food_notes": "",
+    "created_at": "2026-01-22T09:53:45.850573",
+    "updated_at": "2026-01-22T09:53:45.850573"
+  },
+  "2026-01-22": {
+    "date": "2026-01-22",
+    "severity": 3,
+    "foods": [],
+    "notes": "",
+    "skin_notes": "",
+    "food_notes": "",
+    "created_at": "2026-01-22T10:25:55.030984",
+    "updated_at": "2026-01-22T10:25:55.030984"
+  },
+  "2026-01-20": {
+    "date": "2026-01-20",
+    "severity": 2,
+    "foods": [
+      "Gurken"
+    ],
+    "notes": "",
+    "skin_notes": "",
+    "food_notes": "",
+    "created_at": "2026-01-22T10:26:08.432744",
+    "updated_at": "2026-01-22T10:26:08.432744"
+  },
+  "2026-01-19": {
+    "date": "2026-01-19",
+    "severity": 2,
+    "foods": [
+      "Weizen"
+    ],
+    "notes": "",
+    "skin_notes": "",
+    "food_notes": "",
+    "created_at": "2026-01-22T10:26:19.428522",
+    "updated_at": "2026-01-22T10:26:19.428522"
+  }
+}
