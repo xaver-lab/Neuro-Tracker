@@ -10,6 +10,7 @@ Neuro-Tracker hilft dir dabei, deinen Neurodermitis-Verlauf systematisch zu doku
 
 ### Datenerfassung
 - **Täglicher Schweregrad**: Bewertung von 1-5 für den allgemeinen Hautzustand
+- **Notizfeld Schweregrad**: Optionale Notizen zu jedem Tag (Wo genau, Blässen oder Risse)
 - **Lebensmittel-Tracking**: Erfassung gegessener Lebensmittel mit intelligenten Vorschlägen
 - **Notizfeld**: Optionale Notizen zu jedem Tag (Stress, Wetter, Schlaf, etc.)
 - **Schnelle Bearbeitung**: Jeder Tag kann über ein Bearbeiten-Symbol nachträglich angepasst werden
