@@ -48,31 +48,74 @@ SEVERITY_COLORS = {
     5: "#F44336",  # Red - Very Bad
 }
 
-# Food Suggestions (Default suggestions, can be extended by user)
-DEFAULT_FOOD_SUGGESTIONS = [
+# Food Suggestions with Emojis (Dictionary: name -> emoji)
+FOOD_EMOJIS = {
     # Dairy
-    "Milch", "Käse", "Joghurt", "Butter", "Sahne", "Quark",
+    "Milch": "🥛",
+    "Käse": "🧀",
+    "Joghurt": "🥛",
+    "Butter": "🧈",
+    "Sahne": "🥛",
+    "Quark": "🥛",
 
     # Vegetables
-    "Tomaten", "Paprika", "Gurken", "Karotten", "Brokkoli", "Spinat",
-    "Zwiebeln", "Knoblauch", "Salat", "Zucchini",
+    "Tomaten": "🍅",
+    "Paprika": "🫑",
+    "Gurken": "🥒",
+    "Karotten": "🥕",
+    "Brokkoli": "🥦",
+    "Spinat": "🥬",
+    "Zwiebeln": "🧅",
+    "Knoblauch": "🧄",
+    "Salat": "🥗",
+    "Zucchini": "🥒",
 
     # Fruits
-    "Äpfel", "Bananen", "Orangen", "Erdbeeren", "Weintrauben", "Kiwi",
-    "Ananas", "Mango", "Birnen", "Pfirsiche",
+    "Äpfel": "🍎",
+    "Bananen": "🍌",
+    "Orangen": "🍊",
+    "Erdbeeren": "🍓",
+    "Weintrauben": "🍇",
+    "Kiwi": "🥝",
+    "Ananas": "🍍",
+    "Mango": "🥭",
+    "Birnen": "🍐",
+    "Pfirsiche": "🍑",
 
     # Grains
-    "Weizen", "Haferflocken", "Reis", "Nudeln", "Brot", "Müsli",
+    "Weizen": "🌾",
+    "Haferflocken": "🥣",
+    "Reis": "🍚",
+    "Nudeln": "🍝",
+    "Brot": "🍞",
+    "Müsli": "🥣",
 
     # Proteins
-    "Hähnchen", "Rind", "Schwein", "Fisch", "Eier", "Tofu",
+    "Hähnchen": "🍗",
+    "Rind": "🥩",
+    "Schwein": "🥓",
+    "Fisch": "🐟",
+    "Eier": "🥚",
+    "Tofu": "🫘",
 
     # Nuts & Seeds
-    "Erdnüsse", "Mandeln", "Walnüsse", "Haselnüsse", "Sonnenblumenkerne",
+    "Erdnüsse": "🥜",
+    "Mandeln": "🌰",
+    "Walnüsse": "🌰",
+    "Haselnüsse": "🌰",
+    "Sonnenblumenkerne": "🌻",
 
     # Other
-    "Schokolade", "Kaffee", "Tee", "Alkohol", "Zucker", "Honig",
-]
+    "Schokolade": "🍫",
+    "Kaffee": "☕",
+    "Tee": "🍵",
+    "Alkohol": "🍷",
+    "Zucker": "🍬",
+    "Honig": "🍯",
+}
+
+# Default food suggestions (list of names for backward compatibility)
+DEFAULT_FOOD_SUGGESTIONS = list(FOOD_EMOJIS.keys())
 
 # Export Settings
 EXPORT_CSV_DELIMITER = ";"

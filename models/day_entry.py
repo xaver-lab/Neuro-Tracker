@@ -14,6 +14,8 @@ class DayEntry:
         severity: Optional[int] = None,
         foods: Optional[List[str]] = None,
         notes: str = "",
+        skin_notes: str = "",
+        food_notes: str = "",
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None
     ):
@@ -24,7 +26,9 @@ class DayEntry:
             date: Date in ISO format (YYYY-MM-DD)
             severity: Eczema severity rating (1-5)
             foods: List of food items consumed
-            notes: Optional notes for the day
+            notes: Optional notes for the day (legacy, for backward compatibility)
+            skin_notes: Notes about skin condition
+            food_notes: Notes about food/nutrition
             created_at: Creation timestamp (ISO format)
             updated_at: Last update timestamp (ISO format)
         """
@@ -32,6 +36,8 @@ class DayEntry:
         self.severity = severity
         self.foods = foods if foods is not None else []
         self.notes = notes
+        self.skin_notes = skin_notes
+        self.food_notes = food_notes
 
         now = datetime.now().isoformat()
         self.created_at = created_at or now
@@ -44,6 +50,8 @@ class DayEntry:
             "severity": self.severity,
             "foods": self.foods,
             "notes": self.notes,
+            "skin_notes": self.skin_notes,
+            "food_notes": self.food_notes,
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
@@ -56,11 +64,15 @@ class DayEntry:
             severity=data.get("severity"),
             foods=data.get("foods", []),
             notes=data.get("notes", ""),
+            skin_notes=data.get("skin_notes", ""),
+            food_notes=data.get("food_notes", ""),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at")
         )
 
-    def update(self, severity: Optional[int] = None, foods: Optional[List[str]] = None, notes: Optional[str] = None):
+    def update(self, severity: Optional[int] = None, foods: Optional[List[str]] = None,
+               notes: Optional[str] = None, skin_notes: Optional[str] = None,
+               food_notes: Optional[str] = None):
         """Update entry data and refresh updated_at timestamp"""
         if severity is not None:
             self.severity = severity
@@ -68,6 +80,10 @@ class DayEntry:
             self.foods = foods
         if notes is not None:
             self.notes = notes
+        if skin_notes is not None:
+            self.skin_notes = skin_notes
+        if food_notes is not None:
+            self.food_notes = food_notes
 
         self.updated_at = datetime.now().isoformat()
 

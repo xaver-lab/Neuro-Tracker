@@ -9,9 +9,9 @@ from typing import List, Optional
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QLineEdit, QTextEdit, QFrame, QScrollArea,
-    QCompleter, QMessageBox, QSizePolicy, QFlowLayout
+    QCompleter, QMessageBox, QSizePolicy, QGridLayout
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QStringListModel
+from PyQt5.QtCore import Qt, pyqtSignal, QStringListModel, QTimer
 from PyQt5.QtGui import QFont
 
 from config import (
@@ -243,20 +243,20 @@ class EntryPanel(QWidget):
         # Separator
         self.content_layout.addWidget(self._create_separator())
 
-        # Notes section
-        notes_section = QWidget()
-        notes_layout = QVBoxLayout(notes_section)
-        notes_layout.setContentsMargins(0, 0, 0, 0)
-        notes_layout.setSpacing(12)
+        # Skin Notes section
+        skin_notes_section = QWidget()
+        skin_notes_layout = QVBoxLayout(skin_notes_section)
+        skin_notes_layout.setContentsMargins(0, 0, 0, 0)
+        skin_notes_layout.setSpacing(8)
 
-        notes_header = QLabel("Notizen")
-        notes_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        notes_layout.addWidget(notes_header)
+        skin_notes_header = QLabel("Notizen Hautzustand")
+        skin_notes_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        skin_notes_layout.addWidget(skin_notes_header)
 
-        self.notes_input = QTextEdit()
-        self.notes_input.setPlaceholderText("Weitere Notizen (z.B. Stress, Schlaf, Wetter...)")
-        self.notes_input.setMaximumHeight(100)
-        self.notes_input.setStyleSheet(f"""
+        self.skin_notes_input = QTextEdit()
+        self.skin_notes_input.setPlaceholderText("Notizen zum Hautzustand (z.B. Rötungen, Juckreiz...)")
+        self.skin_notes_input.setMaximumHeight(80)
+        self.skin_notes_input.setStyleSheet(f"""
             QTextEdit {{
                 border: 1px solid #E0E0E0;
                 border-radius: 4px;
@@ -267,9 +267,44 @@ class EntryPanel(QWidget):
                 border: 2px solid {COLOR_PRIMARY};
             }}
         """)
-        notes_layout.addWidget(self.notes_input)
+        skin_notes_layout.addWidget(self.skin_notes_input)
 
-        self.content_layout.addWidget(notes_section)
+        self.content_layout.addWidget(skin_notes_section)
+
+        # Separator
+        self.content_layout.addWidget(self._create_separator())
+
+        # Food Notes section
+        food_notes_section = QWidget()
+        food_notes_layout = QVBoxLayout(food_notes_section)
+        food_notes_layout.setContentsMargins(0, 0, 0, 0)
+        food_notes_layout.setSpacing(8)
+
+        food_notes_header = QLabel("Notizen Nahrung")
+        food_notes_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        food_notes_layout.addWidget(food_notes_header)
+
+        self.food_notes_input = QTextEdit()
+        self.food_notes_input.setPlaceholderText("Notizen zur Nahrung (z.B. Menge, Zubereitung...)")
+        self.food_notes_input.setMaximumHeight(80)
+        self.food_notes_input.setStyleSheet(f"""
+            QTextEdit {{
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14px;
+            }}
+            QTextEdit:focus {{
+                border: 2px solid {COLOR_PRIMARY};
+            }}
+        """)
+        food_notes_layout.addWidget(self.food_notes_input)
+
+        self.content_layout.addWidget(food_notes_section)
+
+        # Keep legacy notes_input as hidden for backward compatibility
+        self.notes_input = QTextEdit()
+        self.notes_input.setVisible(False)
 
         # Stretch to push buttons to bottom
         self.content_layout.addStretch()
@@ -331,6 +366,18 @@ class EntryPanel(QWidget):
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.delete_button)
 
+        # Status message label (for save confirmation)
+        self.status_label = QLabel("")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet(f"""
+            color: {COLOR_SUCCESS};
+            font-size: 13px;
+            font-weight: bold;
+            padding: 5px;
+        """)
+        self.status_label.setVisible(False)
+        button_layout.addWidget(self.status_label)
+
         main_layout.addWidget(button_container)
 
         # Initialize severity buttons style
@@ -362,12 +409,14 @@ class EntryPanel(QWidget):
         if self.current_entry:
             self.set_severity(self.current_entry.severity)
             self.food_list = list(self.current_entry.foods)
-            self.notes_input.setText(self.current_entry.notes or "")
+            self.skin_notes_input.setText(self.current_entry.skin_notes or "")
+            self.food_notes_input.setText(self.current_entry.food_notes or "")
             self.delete_button.setVisible(True)
         else:
             self.current_severity = None
             self.food_list = []
-            self.notes_input.clear()
+            self.skin_notes_input.clear()
+            self.food_notes_input.clear()
             self.delete_button.setVisible(False)
 
         self.update_severity_buttons()
@@ -492,7 +541,8 @@ class EntryPanel(QWidget):
             date=self.current_date.isoformat(),
             severity=self.current_severity,
             foods=self.food_list,
-            notes=self.notes_input.toPlainText().strip() or None
+            skin_notes=self.skin_notes_input.toPlainText().strip() or "",
+            food_notes=self.food_notes_input.toPlainText().strip() or ""
         )
 
         self.data_manager.add_or_update_entry(entry)
@@ -501,7 +551,8 @@ class EntryPanel(QWidget):
 
         self.entry_saved.emit(self.current_date)
 
-        QMessageBox.information(self, "Gespeichert", "Eintrag wurde erfolgreich gespeichert.")
+        # Show status message instead of popup
+        self.show_status_message("✓ Gespeichert")
 
     def delete_entry(self):
         """Delete the current entry"""
@@ -520,7 +571,8 @@ class EntryPanel(QWidget):
             self.current_entry = None
             self.current_severity = None
             self.food_list = []
-            self.notes_input.clear()
+            self.skin_notes_input.clear()
+            self.food_notes_input.clear()
             self.delete_button.setVisible(False)
 
             self.update_severity_buttons()
@@ -528,7 +580,13 @@ class EntryPanel(QWidget):
 
             self.entry_deleted.emit(self.current_date)
 
-            QMessageBox.information(self, "Gelöscht", "Eintrag wurde gelöscht.")
+            self.show_status_message("✓ Gelöscht")
+
+    def show_status_message(self, message: str, duration: int = 2000):
+        """Show a temporary status message at the bottom"""
+        self.status_label.setText(message)
+        self.status_label.setVisible(True)
+        QTimer.singleShot(duration, lambda: self.status_label.setVisible(False))
 
     def clear(self):
         """Clear the panel"""
@@ -539,7 +597,8 @@ class EntryPanel(QWidget):
 
         self.date_label.setText("Datum auswählen")
         self.weekday_label.setText("")
-        self.notes_input.clear()
+        self.skin_notes_input.clear()
+        self.food_notes_input.clear()
         self.delete_button.setVisible(False)
 
         self.update_severity_buttons()

@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QCursor
 
-from config import SEVERITY_COLORS, COLOR_TEXT_SECONDARY, COLOR_PRIMARY
+from config import SEVERITY_COLORS, COLOR_TEXT_SECONDARY, COLOR_PRIMARY, FOOD_EMOJIS
 from models.day_entry import DayEntry
 
 
@@ -125,13 +125,14 @@ class DayCard(QFrame):
             }
             self.severity_text.setText(severity_texts.get(severity, ""))
 
-            food_count = len(self.entry.foods)
-            if food_count == 0:
-                self.food_label.setText("Keine Speisen")
-            elif food_count == 1:
-                self.food_label.setText("1 Speise")
+            # Show food emojis instead of count
+            if self.entry.foods:
+                emojis = [FOOD_EMOJIS.get(food, "🍽️") for food in self.entry.foods[:5]]
+                self.food_label.setText(" ".join(emojis))
+                self.food_label.setStyleSheet("font-size: 14px;")
             else:
-                self.food_label.setText(f"{food_count} Speisen")
+                self.food_label.setText("")
+                self.food_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
         else:
             self.severity_indicator.setText("-")
             self.severity_indicator.setStyleSheet(f"""
