@@ -5,6 +5,12 @@ __pycache__/
 *.py[cod]
 
 # -------------------
+# Drive Anbindung
+# -------------------
+credentials.json
+
+
+# -------------------
 # Claude
 # -------------------
 .claude/
