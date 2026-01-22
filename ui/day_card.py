@@ -6,7 +6,7 @@ Displays a single day's entry in the calendar view
 from datetime import date, datetime
 from PyQt5.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel,
-    QSizePolicy, QWidget
+    QSizePolicy, QWidget, QDialog, QScrollArea
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QCursor
@@ -15,13 +15,81 @@ from config import SEVERITY_COLORS, COLOR_TEXT_SECONDARY, COLOR_PRIMARY, FOOD_EM
 from models.day_entry import DayEntry
 
 
+class DayDetailDialog(QDialog):
+    """Dialog showing full details of a day entry"""
+
+    def __init__(self, display_date: date, entry: DayEntry, parent=None):
+        super().__init__(parent)
+        self.display_date = display_date
+        self.entry = entry
+        self.setWindowTitle(f"Details: {display_date.strftime('%d.%m.%Y')}")
+        self.setMinimumSize(400, 300)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        # Date header
+        weekdays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+        date_label = QLabel(f"{weekdays[self.display_date.weekday()]}, {self.display_date.strftime('%d.%m.%Y')}")
+        date_label.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        layout.addWidget(date_label)
+
+        if self.entry:
+            # Severity
+            severity_color = SEVERITY_COLORS.get(self.entry.severity, "#9E9E9E")
+            severity_texts = {1: "Sehr gut", 2: "Gut", 3: "Mittel", 4: "Schlecht", 5: "Sehr schlecht"}
+            severity_label = QLabel(f"Hautzustand: {self.entry.severity} - {severity_texts.get(self.entry.severity, '')}")
+            severity_label.setStyleSheet(f"color: {severity_color}; font-weight: bold; font-size: 14px;")
+            layout.addWidget(severity_label)
+
+            # Skin notes
+            if self.entry.skin_notes:
+                skin_header = QLabel("Notizen Hautzustand:")
+                skin_header.setFont(QFont("Segoe UI", 12, QFont.Bold))
+                layout.addWidget(skin_header)
+                skin_notes = QLabel(self.entry.skin_notes)
+                skin_notes.setWordWrap(True)
+                skin_notes.setStyleSheet("padding: 8px; background-color: #F5F5F5; border-radius: 4px;")
+                layout.addWidget(skin_notes)
+
+            # Foods
+            if self.entry.foods:
+                food_header = QLabel("Lebensmittel:")
+                food_header.setFont(QFont("Segoe UI", 12, QFont.Bold))
+                layout.addWidget(food_header)
+                food_list = QLabel(", ".join(self.entry.foods))
+                food_list.setWordWrap(True)
+                food_list.setStyleSheet("padding: 8px; background-color: #E3F2FD; border-radius: 4px;")
+                layout.addWidget(food_list)
+
+            # Food notes
+            if self.entry.food_notes:
+                food_notes_header = QLabel("Notizen Nahrung:")
+                food_notes_header.setFont(QFont("Segoe UI", 12, QFont.Bold))
+                layout.addWidget(food_notes_header)
+                food_notes = QLabel(self.entry.food_notes)
+                food_notes.setWordWrap(True)
+                food_notes.setStyleSheet("padding: 8px; background-color: #F5F5F5; border-radius: 4px;")
+                layout.addWidget(food_notes)
+        else:
+            no_entry = QLabel("Kein Eintrag für diesen Tag")
+            no_entry.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-style: italic;")
+            layout.addWidget(no_entry)
+
+        layout.addStretch()
+
+
 class DayCard(QFrame):
     """
     A card widget representing a single day in the calendar.
-    Shows date, severity indicator, and food count.
+    Shows date, severity indicator, foods and notes preview.
     """
 
     clicked = pyqtSignal(date)  # Emitted when card is clicked
+    detail_requested = pyqtSignal(date)  # Emitted when detail view is requested
 
     def __init__(self, display_date: date, entry: DayEntry = None, parent=None):
         super().__init__(parent)
@@ -35,12 +103,12 @@ class DayCard(QFrame):
 
     def setup_ui(self):
         """Initialize the UI components"""
-        self.setFixedSize(140, 120)
+        self.setFixedSize(160, 150)
         self.setCursor(QCursor(Qt.PointingHandCursor))
         self.setObjectName("dayCard")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(4)
 
         # Header with day name and date
@@ -100,6 +168,13 @@ class DayCard(QFrame):
         self.food_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
         layout.addWidget(self.food_label)
 
+        # Notes preview (truncated)
+        self.notes_preview = QLabel()
+        self.notes_preview.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 10px;")
+        self.notes_preview.setWordWrap(True)
+        self.notes_preview.setMaximumHeight(30)
+        layout.addWidget(self.notes_preview)
+
         self.update_content()
 
     def update_content(self):
@@ -129,10 +204,21 @@ class DayCard(QFrame):
             if self.entry.foods:
                 emojis = [FOOD_EMOJIS.get(food, "🍽️") for food in self.entry.foods[:5]]
                 self.food_label.setText(" ".join(emojis))
-                self.food_label.setStyleSheet("font-size: 14px;")
+                self.food_label.setStyleSheet("font-size: 12px;")
             else:
                 self.food_label.setText("")
                 self.food_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
+
+            # Show notes preview (truncated)
+            notes_text = self.entry.skin_notes or self.entry.food_notes or ""
+            if notes_text:
+                # Truncate if too long
+                if len(notes_text) > 35:
+                    notes_text = notes_text[:32] + "..."
+                self.notes_preview.setText(notes_text)
+                self.notes_preview.setToolTip("Doppelklick für Details")
+            else:
+                self.notes_preview.setText("")
         else:
             self.severity_indicator.setText("-")
             self.severity_indicator.setStyleSheet(f"""
@@ -142,6 +228,7 @@ class DayCard(QFrame):
             """)
             self.severity_text.setText("Kein Eintrag")
             self.food_label.setText("")
+            self.notes_preview.setText("")
 
     def update_style(self):
         """Update the card's visual style"""
@@ -199,6 +286,13 @@ class DayCard(QFrame):
             self.clicked.emit(self.display_date)
         super().mousePressEvent(event)
 
+    def mouseDoubleClickEvent(self, event):
+        """Handle double click to show detail dialog"""
+        if event.button() == Qt.LeftButton and self.entry:
+            dialog = DayDetailDialog(self.display_date, self.entry, self)
+            dialog.exec_()
+        super().mouseDoubleClickEvent(event)
+
 
 class EmptyDayCard(QFrame):
     """
@@ -207,7 +301,7 @@ class EmptyDayCard(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(140, 120)
+        self.setFixedSize(160, 150)
         self.setStyleSheet("""
             QFrame {
                 background-color: #F5F5F5;

@@ -10,10 +10,11 @@ Neuro-Tracker hilft dir dabei, deinen Neurodermitis-Verlauf systematisch zu doku
 
 ### Datenerfassung
 - **Täglicher Schweregrad**: Bewertung von 1-5 für den allgemeinen Hautzustand
-- **Notizfeld Schweregrad**: Optionale Notizen zu jedem Tag (Wo genau, Blässen oder Risse)
-- **Lebensmittel-Tracking**: Erfassung gegessener Lebensmittel mit intelligenten Vorschlägen
-- **Notizfeld**: Optionale Notizen zu jedem Tag (Stress, Wetter, Schlaf, etc.)
-- **Schnelle Bearbeitung**: Jeder Tag kann über ein Bearbeiten-Symbol nachträglich angepasst werden
+- **Notizfeld Schweregrad**: Optionale Notizen direkt unter der Schweregrad-Auswahl
+- **Lebensmittel-Tracking**: Fixe Auswahl aus vordefinierten Lebensmitteln (Checkboxen)
+- **Notizfeld Nahrung**: Optionale Notizen direkt unter der Lebensmittel-Auswahl
+- **Schnelle Bearbeitung**: Jeder Tag kann durch Anklicken bearbeitet werden
+- **Detail-Ansicht**: Doppelklick auf einen Tag zeigt alle Details in einem erweiterten Fenster
 
 ### Benutzeroberfläche
 - **Wochenansicht**: Übersichtliche Darstellung von 2 Wochen (aktuelle + letzte Woche)
@@ -24,9 +25,22 @@ Neuro-Tracker hilft dir dabei, deinen Neurodermitis-Verlauf systematisch zu doku
   - Speichern-Button für jeden Eintrag
 
 ### Analyse & Export
-- **Statistiken**: Graphische Darstellung von Trends und Mustern
-- **Charts**: Visualisierung von Zusammenhängen zwischen Ernährung und Symptomen
+- **Statistiken**: Graphische Darstellung von Durchschnittswerten und Trends
+- **Muster-Erkennung**: Automatische Erkennung von Zusammenhängen zwischen Ernährung und Symptomen
 - **Export-Funktion**: Daten als CSV/PDF für Arztbesuche exportieren
+
+### Muster-Erkennung (NEU)
+Die Muster-Erkennung analysiert automatisch, ob bestimmte Lebensmittel mit einer Verschlechterung des Hautzustands in den folgenden Tagen zusammenhängen:
+
+- **Zeitfenster einstellbar**: 1-5 Tage nach Verzehr (Standard: 2 Tage)
+- **Schwellenwert konfigurierbar**: Ab welcher Schwere gilt ein Tag als "schlecht" (Standard: 4)
+- **Wahrscheinlichkeitsberechnung**:
+  - Die App zählt, wie oft nach dem Verzehr eines Lebensmittels ein schlechter Tag folgte
+  - Beispiel: Milch wurde 10x gegessen, 6x folgte innerhalb von 2 Tagen ein schlechter Tag = 60% Wahrscheinlichkeit
+- **Farbcodierung**:
+  - Rot (>50%): Hohe Wahrscheinlichkeit - möglicher Trigger
+  - Orange (25-50%): Mittlere Wahrscheinlichkeit - beobachten
+  - Grün (<25%): Geringe Wahrscheinlichkeit - vermutlich verträglich
 
 ### Synchronisation
 - **Google Drive Integration**: Automatische Synchronisation zwischen mehreren PCs
@@ -36,16 +50,20 @@ Neuro-Tracker hilft dir dabei, deinen Neurodermitis-Verlauf systematisch zu doku
 ## 🏗️ Projektstruktur
 
 ```
-Neuro-Tracker/
+NeuroTracker/
 ├── README.md                    # Diese Datei
 ├── requirements.txt             # Python-Dependencies
 ├── main.py                      # Einstiegspunkt der Anwendung
 ├── config.py                    # Konfiguration (Pfade, Einstellungen)
+├── build.md                     # Build-Anleitung und Dokumentation
+├── credentials.json             # Google API Credentials (nicht committen!)
+├── .gitignore                   # Git Ignore-Regeln
 │
 ├── data/                        # Lokale Datenspeicherung
 │   ├── entries.json             # Tägliche Einträge
 │   ├── food_suggestions.json    # Lebensmittel-Vorschläge
-│   └── settings.json            # Benutzereinstellungen
+│   ├── sync_status.json         # Status der Google Drive Synchronisation
+│   └── token.json               # OAuth Token für Google Drive
 │
 ├── ui/                          # User Interface Komponenten
 │   ├── __init__.py
@@ -68,17 +86,6 @@ Neuro-Tracker/
 │   ├── statistics.py            # Statistik-Berechnungen
 │   ├── export.py                # Export zu CSV/PDF
 │   └── validators.py            # Eingabe-Validierung
-│
-├── resources/                   # Ressourcen (Icons, Bilder)
-│   └── icons/
-│       ├── edit.png
-│       ├── save.png
-│       └── stats.png
-│
-└── tests/                       # Unit-Tests
-    ├── __init__.py
-    ├── test_day_entry.py
-    └── test_data_manager.py
 ```
 
 ## 🚀 Installation
@@ -145,22 +152,23 @@ Neuro-Tracker/
 
 ## 🎯 Geplante Features (Roadmap)
 
-- [ ] **v1.0 - Grundfunktionen**
+- [x] **v1.0 - Grundfunktionen**
   - [x] Projektstruktur
-  - [ ] Kalenderansicht mit 2 Wochen
-  - [ ] Eingabe-Panel für neue Einträge
-  - [ ] Daten lokal speichern (JSON)
-  - [ ] Bearbeiten bestehender Einträge
+  - [x] Kalenderansicht mit 2 Wochen
+  - [x] Eingabe-Panel für neue Einträge
+  - [x] Daten lokal speichern (JSON)
+  - [x] Bearbeiten bestehender Einträge
 
-- [ ] **v1.1 - Synchronisation**
-  - [ ] Google Drive Integration
-  - [ ] Automatisches Backup
+- [x] **v1.1 - Synchronisation**
+  - [x] Google Drive Integration
+  - [x] Automatisches Backup
   - [ ] Konflikt-Auflösung bei mehreren PCs
 
-- [ ] **v1.2 - Analyse**
-  - [ ] Basis-Statistiken (Durchschnittswerte, Trends)
-  - [ ] Korrelation Essen ↔ Schweregrad
-  - [ ] Häufigste Trigger-Lebensmittel
+- [x] **v1.2 - Analyse**
+  - [x] Basis-Statistiken (Durchschnittswerte, Trends)
+  - [x] Korrelation Essen ↔ Schweregrad
+  - [x] Muster-Erkennung mit Zeitfenster
+  - [x] Wahrscheinlichkeitsberechnung für Trigger
 
 - [ ] **v1.3 - Erweiterte Features**
   - [ ] Export zu CSV/PDF
@@ -169,7 +177,6 @@ Neuro-Tracker/
   - [ ] Mehrsprachigkeit (DE/EN)
 
 - [ ] **v2.0 - Advanced**
-  - [ ] KI-gestützte Muster-Erkennung
   - [ ] Lebensmittel-Kategorien
   - [ ] Mehrere Körperstellen tracken
 
@@ -192,21 +199,27 @@ Dieses Projekt ist unter der MIT-Lizenz veröffentlicht - siehe [LICENSE](LICENS
 ### Ersten Eintrag erstellen
 1. Starte die Anwendung
 2. Das Eingabe-Panel links zeigt automatisch den heutigen Tag
-3. Wähle den Schweregrad (1-5)
-4. Füge Lebensmittel hinzu (mit Tab-Taste für Vorschläge)
-5. Optional: Notizen hinzufügen
+3. Wähle den Schweregrad (1-5) und füge optional Notizen hinzu
+4. Wähle die gegessenen Lebensmittel aus den Checkboxen
+5. Optional: Notizen zur Nahrung hinzufügen
 6. Klicke auf "Speichern"
 
 ### Vergangene Tage bearbeiten
-1. Klicke auf das Bearbeiten-Symbol ✏️ im entsprechenden Tag
+1. Klicke auf einen Tag im Kalender
 2. Der Tag wird ins Eingabe-Panel geladen
 3. Nimm deine Änderungen vor
 4. Klicke auf "Speichern"
 
-### Statistiken ansehen
+### Tagesdetails ansehen
+1. Doppelklicke auf einen Tag im Kalender
+2. Ein Detail-Fenster zeigt alle Informationen des Tages
+
+### Muster-Erkennung nutzen
 1. Klicke auf den "Statistiken"-Button in der Toolbar
-2. Wähle den Zeitraum aus
-3. Betrachte Charts und Korrelationen
+2. Wechsle zum Tab "Muster-Erkennung"
+3. Stelle das Zeitfenster ein (wie viele Tage nach Verzehr soll geprüft werden)
+4. Stelle den Schwellenwert ein (ab welcher Schwere gilt ein Tag als schlecht)
+5. Die Tabelle zeigt alle erkannten Muster mit Wahrscheinlichkeiten
 
 ## 🐛 Bekannte Probleme & FAQ
 

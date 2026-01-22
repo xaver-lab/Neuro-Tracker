@@ -9,72 +9,22 @@ from typing import List, Optional
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QLineEdit, QTextEdit, QFrame, QScrollArea,
-    QCompleter, QMessageBox, QSizePolicy, QGridLayout
+    QCompleter, QMessageBox, QSizePolicy, QGridLayout, QCheckBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QStringListModel, QTimer
 from PyQt5.QtGui import QFont
+import json
 
 from config import (
     SEVERITY_COLORS, MIN_SEVERITY, MAX_SEVERITY,
     COLOR_PRIMARY, COLOR_TEXT_PRIMARY, COLOR_TEXT_SECONDARY,
-    COLOR_DANGER, COLOR_SUCCESS, ENTRY_PANEL_WIDTH
+    COLOR_DANGER, COLOR_SUCCESS, ENTRY_PANEL_WIDTH, FOOD_SUGGESTIONS_FILE
 )
 from models.day_entry import DayEntry
 from models.data_manager import DataManager
 from models.food_manager import FoodManager
 
 
-class FlowLayout(QVBoxLayout):
-    """Simple flow layout simulation using horizontal layouts"""
-    pass
-
-
-class FoodTag(QFrame):
-    """A tag/chip widget for displaying a food item"""
-
-    removed = pyqtSignal(str)  # Emitted when tag is removed
-
-    def __init__(self, food: str, parent=None):
-        super().__init__(parent)
-        self.food = food
-        self.setup_ui()
-
-    def setup_ui(self):
-        """Initialize the UI"""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 4, 4)
-        layout.setSpacing(4)
-
-        label = QLabel(self.food)
-        label.setStyleSheet(f"color: {COLOR_PRIMARY}; font-size: 13px;")
-
-        remove_btn = QPushButton("×")
-        remove_btn.setFixedSize(20, 20)
-        remove_btn.setCursor(Qt.PointingHandCursor)
-        remove_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: {COLOR_PRIMARY};
-                font-weight: bold;
-                font-size: 16px;
-            }}
-            QPushButton:hover {{
-                color: {COLOR_DANGER};
-            }}
-        """)
-        remove_btn.clicked.connect(lambda: self.removed.emit(self.food))
-
-        layout.addWidget(label)
-        layout.addWidget(remove_btn)
-
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: #E3F2FD;
-                border: 1px solid {COLOR_PRIMARY};
-                border-radius: 14px;
-            }}
-        """)
 
 
 class EntryPanel(QWidget):
@@ -92,7 +42,6 @@ class EntryPanel(QWidget):
         self.food_manager = food_manager
         self.current_date: Optional[date] = None
         self.current_entry: Optional[DayEntry] = None
-        self.food_list: List[str] = []
 
         self.setFixedWidth(ENTRY_PANEL_WIDTH)
         self.setup_ui()
@@ -168,139 +117,105 @@ class EntryPanel(QWidget):
         self.severity_description.setWordWrap(True)
         severity_layout.addWidget(self.severity_description)
 
+        # Skin Notes directly under severity
+        skin_notes_header = QLabel("Notizen Hautzustand")
+        skin_notes_header.setFont(QFont("Segoe UI", 12))
+        skin_notes_header.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; margin-top: 8px;")
+        severity_layout.addWidget(skin_notes_header)
+
+        self.skin_notes_input = QTextEdit()
+        self.skin_notes_input.setPlaceholderText("z.B. Rötungen, Juckreiz, Stellen...")
+        self.skin_notes_input.setMaximumHeight(60)
+        self.skin_notes_input.setStyleSheet(f"""
+            QTextEdit {{
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 13px;
+            }}
+            QTextEdit:focus {{
+                border: 2px solid {COLOR_PRIMARY};
+            }}
+        """)
+        severity_layout.addWidget(self.skin_notes_input)
+
         self.content_layout.addWidget(severity_section)
 
         # Separator
         self.content_layout.addWidget(self._create_separator())
 
-        # Food section
+        # Food section with checkboxes
         food_section = QWidget()
         food_layout = QVBoxLayout(food_section)
         food_layout.setContentsMargins(0, 0, 0, 0)
-        food_layout.setSpacing(12)
+        food_layout.setSpacing(8)
 
         food_header = QLabel("Lebensmittel")
         food_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
         food_layout.addWidget(food_header)
 
-        # Food input with autocomplete
-        food_input_layout = QHBoxLayout()
+        # Load fixed food suggestions
+        self.fixed_foods = self._load_food_suggestions()
+        self.food_checkboxes = {}
 
-        self.food_input = QLineEdit()
-        self.food_input.setPlaceholderText("Lebensmittel eingeben...")
-        self.food_input.setStyleSheet(f"""
-            QLineEdit {{
-                border: 1px solid #E0E0E0;
-                border-radius: 4px;
-                padding: 10px;
-                font-size: 14px;
-            }}
-            QLineEdit:focus {{
-                border: 2px solid {COLOR_PRIMARY};
-            }}
-        """)
-        self.food_input.returnPressed.connect(self.add_food)
+        # Create checkbox grid
+        checkbox_container = QWidget()
+        checkbox_grid = QGridLayout(checkbox_container)
+        checkbox_grid.setContentsMargins(0, 0, 0, 0)
+        checkbox_grid.setSpacing(4)
 
-        # Setup autocomplete
-        self.food_completer = QCompleter()
-        self.food_completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.food_completer.setFilterMode(Qt.MatchContains)
-        self.food_input.setCompleter(self.food_completer)
-        self.update_food_suggestions()
+        for i, food in enumerate(self.fixed_foods):
+            checkbox = QCheckBox(food)
+            checkbox.setStyleSheet(f"""
+                QCheckBox {{
+                    font-size: 12px;
+                    padding: 4px;
+                }}
+                QCheckBox::indicator {{
+                    width: 16px;
+                    height: 16px;
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {COLOR_PRIMARY};
+                    border: 1px solid {COLOR_PRIMARY};
+                    border-radius: 3px;
+                }}
+                QCheckBox::indicator:unchecked {{
+                    background-color: white;
+                    border: 1px solid #BDBDBD;
+                    border-radius: 3px;
+                }}
+            """)
+            row = i // 2
+            col = i % 2
+            checkbox_grid.addWidget(checkbox, row, col)
+            self.food_checkboxes[food] = checkbox
 
-        add_food_btn = QPushButton("+")
-        add_food_btn.setFixedSize(40, 40)
-        add_food_btn.setCursor(Qt.PointingHandCursor)
-        add_food_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLOR_PRIMARY};
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-size: 20px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: #1976D2;
-            }}
-        """)
-        add_food_btn.clicked.connect(self.add_food)
+        food_layout.addWidget(checkbox_container)
 
-        food_input_layout.addWidget(self.food_input)
-        food_input_layout.addWidget(add_food_btn)
-        food_layout.addLayout(food_input_layout)
-
-        # Food tags container
-        self.food_tags_container = QWidget()
-        self.food_tags_layout = QVBoxLayout(self.food_tags_container)
-        self.food_tags_layout.setContentsMargins(0, 0, 0, 0)
-        self.food_tags_layout.setSpacing(8)
-
-        food_layout.addWidget(self.food_tags_container)
-
-        self.content_layout.addWidget(food_section)
-
-        # Separator
-        self.content_layout.addWidget(self._create_separator())
-
-        # Skin Notes section
-        skin_notes_section = QWidget()
-        skin_notes_layout = QVBoxLayout(skin_notes_section)
-        skin_notes_layout.setContentsMargins(0, 0, 0, 0)
-        skin_notes_layout.setSpacing(8)
-
-        skin_notes_header = QLabel("Notizen Hautzustand")
-        skin_notes_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        skin_notes_layout.addWidget(skin_notes_header)
-
-        self.skin_notes_input = QTextEdit()
-        self.skin_notes_input.setPlaceholderText("Notizen zum Hautzustand (z.B. Rötungen, Juckreiz...)")
-        self.skin_notes_input.setMaximumHeight(80)
-        self.skin_notes_input.setStyleSheet(f"""
-            QTextEdit {{
-                border: 1px solid #E0E0E0;
-                border-radius: 4px;
-                padding: 10px;
-                font-size: 14px;
-            }}
-            QTextEdit:focus {{
-                border: 2px solid {COLOR_PRIMARY};
-            }}
-        """)
-        skin_notes_layout.addWidget(self.skin_notes_input)
-
-        self.content_layout.addWidget(skin_notes_section)
-
-        # Separator
-        self.content_layout.addWidget(self._create_separator())
-
-        # Food Notes section
-        food_notes_section = QWidget()
-        food_notes_layout = QVBoxLayout(food_notes_section)
-        food_notes_layout.setContentsMargins(0, 0, 0, 0)
-        food_notes_layout.setSpacing(8)
-
+        # Food Notes directly under food checkboxes
         food_notes_header = QLabel("Notizen Nahrung")
-        food_notes_header.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        food_notes_layout.addWidget(food_notes_header)
+        food_notes_header.setFont(QFont("Segoe UI", 12))
+        food_notes_header.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; margin-top: 8px;")
+        food_layout.addWidget(food_notes_header)
 
         self.food_notes_input = QTextEdit()
-        self.food_notes_input.setPlaceholderText("Notizen zur Nahrung (z.B. Menge, Zubereitung...)")
-        self.food_notes_input.setMaximumHeight(80)
+        self.food_notes_input.setPlaceholderText("z.B. Menge, Zubereitung...")
+        self.food_notes_input.setMaximumHeight(60)
         self.food_notes_input.setStyleSheet(f"""
             QTextEdit {{
                 border: 1px solid #E0E0E0;
                 border-radius: 4px;
-                padding: 10px;
-                font-size: 14px;
+                padding: 8px;
+                font-size: 13px;
             }}
             QTextEdit:focus {{
                 border: 2px solid {COLOR_PRIMARY};
             }}
         """)
-        food_notes_layout.addWidget(self.food_notes_input)
+        food_layout.addWidget(self.food_notes_input)
 
-        self.content_layout.addWidget(food_notes_section)
+        self.content_layout.addWidget(food_section)
 
         # Keep legacy notes_input as hidden for backward compatibility
         self.notes_input = QTextEdit()
@@ -312,7 +227,7 @@ class EntryPanel(QWidget):
         scroll_area.setWidget(content_widget)
         main_layout.addWidget(scroll_area)
 
-        # Action buttons at bottom
+        # Action buttons at bottom (smaller)
         button_container = QWidget()
         button_container.setStyleSheet("""
             QWidget {
@@ -320,9 +235,9 @@ class EntryPanel(QWidget):
                 border-top: 1px solid #E0E0E0;
             }
         """)
-        button_layout = QVBoxLayout(button_container)
-        button_layout.setContentsMargins(20, 15, 20, 15)
-        button_layout.setSpacing(10)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(20, 10, 20, 10)
+        button_layout.setSpacing(8)
 
         self.save_button = QPushButton("Speichern")
         self.save_button.setCursor(Qt.PointingHandCursor)
@@ -332,8 +247,8 @@ class EntryPanel(QWidget):
                 color: white;
                 border: none;
                 border-radius: 4px;
-                padding: 12px;
-                font-size: 14px;
+                padding: 8px 16px;
+                font-size: 12px;
                 font-weight: bold;
             }}
             QPushButton:hover {{
@@ -345,7 +260,7 @@ class EntryPanel(QWidget):
         """)
         self.save_button.clicked.connect(self.save_entry)
 
-        self.delete_button = QPushButton("Eintrag löschen")
+        self.delete_button = QPushButton("Löschen")
         self.delete_button.setCursor(Qt.PointingHandCursor)
         self.delete_button.setStyleSheet(f"""
             QPushButton {{
@@ -353,8 +268,8 @@ class EntryPanel(QWidget):
                 color: {COLOR_DANGER};
                 border: 1px solid {COLOR_DANGER};
                 border-radius: 4px;
-                padding: 12px;
-                font-size: 14px;
+                padding: 8px 16px;
+                font-size: 12px;
             }}
             QPushButton:hover {{
                 background-color: #FFEBEE;
@@ -365,6 +280,7 @@ class EntryPanel(QWidget):
 
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.delete_button)
+        button_layout.addStretch()
 
         # Status message label (for save confirmation)
         self.status_label = QLabel("")
@@ -392,6 +308,23 @@ class EntryPanel(QWidget):
         separator.setFixedHeight(1)
         return separator
 
+    def _load_food_suggestions(self) -> list:
+        """Load fixed food suggestions from JSON file"""
+        try:
+            with open(FOOD_SUGGESTIONS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return ["Milch", "Weizen", "Eier", "Nüsse", "Schokolade"]
+
+    def get_selected_foods(self) -> list:
+        """Get list of selected food checkboxes"""
+        return [food for food, checkbox in self.food_checkboxes.items() if checkbox.isChecked()]
+
+    def set_food_checkboxes(self, foods: list):
+        """Set the food checkboxes based on a list of foods"""
+        for food, checkbox in self.food_checkboxes.items():
+            checkbox.setChecked(food in foods)
+
     def set_date(self, selected_date: date):
         """Set the date to edit"""
         self.current_date = selected_date
@@ -408,19 +341,18 @@ class EntryPanel(QWidget):
         # Load entry data
         if self.current_entry:
             self.set_severity(self.current_entry.severity)
-            self.food_list = list(self.current_entry.foods)
+            self.set_food_checkboxes(self.current_entry.foods)
             self.skin_notes_input.setText(self.current_entry.skin_notes or "")
             self.food_notes_input.setText(self.current_entry.food_notes or "")
             self.delete_button.setVisible(True)
         else:
             self.current_severity = None
-            self.food_list = []
+            self.set_food_checkboxes([])
             self.skin_notes_input.clear()
             self.food_notes_input.clear()
             self.delete_button.setVisible(False)
 
         self.update_severity_buttons()
-        self.update_food_tags()
 
     def set_severity(self, severity: int):
         """Set the current severity level"""
@@ -468,65 +400,6 @@ class EntryPanel(QWidget):
                     }}
                 """)
 
-    def update_food_suggestions(self):
-        """Update the food autocomplete suggestions"""
-        all_foods = set(self.food_manager.get_all_suggestions())
-        all_foods.update(self.data_manager.get_all_foods())
-
-        model = QStringListModel(sorted(all_foods))
-        self.food_completer.setModel(model)
-
-    def add_food(self):
-        """Add a food item from the input"""
-        food = self.food_input.text().strip()
-        if food and food not in self.food_list:
-            self.food_list.append(food)
-            self.food_manager.add_food(food)
-            self.update_food_tags()
-            self.update_food_suggestions()
-        self.food_input.clear()
-
-    def remove_food(self, food: str):
-        """Remove a food item"""
-        if food in self.food_list:
-            self.food_list.remove(food)
-            self.update_food_tags()
-
-    def update_food_tags(self):
-        """Update the food tags display"""
-        # Clear existing tags
-        while self.food_tags_layout.count():
-            item = self.food_tags_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        if not self.food_list:
-            empty_label = QLabel("Noch keine Lebensmittel hinzugefügt")
-            empty_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-style: italic;")
-            self.food_tags_layout.addWidget(empty_label)
-            return
-
-        # Create rows of tags (flow layout simulation)
-        row_layout = None
-        row_width = 0
-        max_width = ENTRY_PANEL_WIDTH - 60  # Account for padding
-
-        for food in self.food_list:
-            tag = FoodTag(food)
-            tag.removed.connect(self.remove_food)
-
-            # Estimate tag width (rough calculation)
-            tag_width = len(food) * 8 + 50
-
-            if row_layout is None or row_width + tag_width > max_width:
-                row_layout = QHBoxLayout()
-                row_layout.setSpacing(8)
-                row_layout.setAlignment(Qt.AlignLeft)
-                self.food_tags_layout.addLayout(row_layout)
-                row_width = 0
-
-            row_layout.addWidget(tag)
-            row_width += tag_width
 
     def save_entry(self):
         """Save the current entry"""
@@ -540,7 +413,7 @@ class EntryPanel(QWidget):
         entry = DayEntry(
             date=self.current_date.isoformat(),
             severity=self.current_severity,
-            foods=self.food_list,
+            foods=self.get_selected_foods(),
             skin_notes=self.skin_notes_input.toPlainText().strip() or "",
             food_notes=self.food_notes_input.toPlainText().strip() or ""
         )
@@ -559,28 +432,19 @@ class EntryPanel(QWidget):
         if not self.current_date or not self.current_entry:
             return
 
-        reply = QMessageBox.question(
-            self, "Löschen bestätigen",
-            f"Möchtest du den Eintrag vom {self.date_label.text()} wirklich löschen?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        self.data_manager.delete_entry(self.current_date)
+        self.current_entry = None
+        self.current_severity = None
+        self.set_food_checkboxes([])
+        self.skin_notes_input.clear()
+        self.food_notes_input.clear()
+        self.delete_button.setVisible(False)
 
-        if reply == QMessageBox.Yes:
-            self.data_manager.delete_entry(self.current_date)
-            self.current_entry = None
-            self.current_severity = None
-            self.food_list = []
-            self.skin_notes_input.clear()
-            self.food_notes_input.clear()
-            self.delete_button.setVisible(False)
+        self.update_severity_buttons()
 
-            self.update_severity_buttons()
-            self.update_food_tags()
+        self.entry_deleted.emit(self.current_date)
 
-            self.entry_deleted.emit(self.current_date)
-
-            self.show_status_message("✓ Gelöscht")
+        self.show_status_message("✓ Gelöscht")
 
     def show_status_message(self, message: str, duration: int = 2000):
         """Show a temporary status message at the bottom"""
@@ -593,7 +457,7 @@ class EntryPanel(QWidget):
         self.current_date = None
         self.current_entry = None
         self.current_severity = None
-        self.food_list = []
+        self.set_food_checkboxes([])
 
         self.date_label.setText("Datum auswählen")
         self.weekday_label.setText("")
@@ -602,4 +466,3 @@ class EntryPanel(QWidget):
         self.delete_button.setVisible(False)
 
         self.update_severity_buttons()
-        self.update_food_tags()

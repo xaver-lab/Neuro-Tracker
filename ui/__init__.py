@@ -17,7 +17,7 @@ from ui.styles import (
 
 from ui.day_card import DayCard, EmptyDayCard
 from ui.calendar_widget import CalendarWidget
-from ui.entry_panel import EntryPanel, FoodTag
+from ui.entry_panel import EntryPanel
 from ui.statistics_dialog import StatisticsDialog, StatCard
 from ui.main_window import MainWindow
 
@@ -39,7 +39,6 @@ __all__ = [
     'EmptyDayCard',
     'CalendarWidget',
     'EntryPanel',
-    'FoodTag',
     'StatisticsDialog',
     'StatCard',
     'MainWindow',

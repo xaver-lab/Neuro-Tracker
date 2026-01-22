@@ -346,3 +346,101 @@ class StatisticsCalculator:
             'change': round(p1_avg - p2_avg, 2),
             'improved': p1_avg < p2_avg
         }
+
+    def detect_patterns(self, delay_days: int = 2, severity_threshold: int = 4) -> List[Dict]:
+        """
+        Detect patterns between food consumption and skin reactions with a time delay.
+
+        This analyzes whether eating certain foods correlates with worsening
+        skin condition 1-N days later.
+
+        Args:
+            delay_days: Maximum days to look ahead for reaction (1-3)
+            severity_threshold: Minimum severity to consider as a "bad" day
+
+        Returns:
+            List of detected patterns with probability scores
+        """
+        entries = self.data_manager.get_all_entries()
+        if len(entries) < 5:
+            return []
+
+        # Create a date-to-entry lookup
+        entry_by_date = {}
+        for entry in entries:
+            entry_date = date.fromisoformat(entry.date)
+            entry_by_date[entry_date] = entry
+
+        # Track patterns: food -> {occurrences, followed_by_bad_days}
+        patterns = defaultdict(lambda: {
+            'total_occurrences': 0,
+            'followed_by_bad': 0,
+            'bad_days_detail': []
+        })
+
+        # Analyze each entry
+        for entry in entries:
+            if not entry.foods:
+                continue
+
+            entry_date = date.fromisoformat(entry.date)
+
+            # Check following days within delay window
+            for food in entry.foods:
+                patterns[food]['total_occurrences'] += 1
+
+                # Look at days 1 to delay_days after this entry
+                for day_offset in range(1, delay_days + 1):
+                    check_date = entry_date + timedelta(days=day_offset)
+                    if check_date in entry_by_date:
+                        future_entry = entry_by_date[check_date]
+                        if future_entry.severity >= severity_threshold:
+                            patterns[food]['followed_by_bad'] += 1
+                            patterns[food]['bad_days_detail'].append({
+                                'food_date': entry.date,
+                                'reaction_date': future_entry.date,
+                                'delay': day_offset,
+                                'severity': future_entry.severity
+                            })
+                            break  # Count only once per food-consumption event
+
+        # Calculate probabilities and filter meaningful patterns
+        result = []
+        for food, data in patterns.items():
+            if data['total_occurrences'] >= 3:  # Minimum 3 occurrences for reliability
+                probability = (data['followed_by_bad'] / data['total_occurrences']) * 100
+                result.append({
+                    'food': food,
+                    'total_occurrences': data['total_occurrences'],
+                    'triggered_reactions': data['followed_by_bad'],
+                    'probability': round(probability, 1),
+                    'details': data['bad_days_detail'][:5]  # Show last 5 examples
+                })
+
+        # Sort by probability (highest first)
+        result.sort(key=lambda x: x['probability'], reverse=True)
+        return result
+
+    def get_pattern_summary(self, delay_days: int = 2) -> str:
+        """Get a human-readable summary of detected patterns"""
+        patterns = self.detect_patterns(delay_days)
+
+        if not patterns:
+            return "Noch nicht genügend Daten für Muster-Erkennung. Mindestens 5 Einträge erforderlich."
+
+        lines = [f"Muster-Analyse (Zeitfenster: {delay_days} Tage)\n"]
+
+        high_risk = [p for p in patterns if p['probability'] >= 50]
+        medium_risk = [p for p in patterns if 25 <= p['probability'] < 50]
+
+        if high_risk:
+            lines.append("⚠️ Hohe Wahrscheinlichkeit (>50%):")
+            for p in high_risk[:3]:
+                lines.append(f"   • {p['food']}: {p['probability']}% ({p['triggered_reactions']}/{p['total_occurrences']} mal)")
+
+        if medium_risk:
+            lines.append("\n⚡ Mittlere Wahrscheinlichkeit (25-50%):")
+            for p in medium_risk[:3]:
+                lines.append(f"   • {p['food']}: {p['probability']}% ({p['triggered_reactions']}/{p['total_occurrences']} mal)")
+
+        return "\n".join(lines)

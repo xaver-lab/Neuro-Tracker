@@ -9,7 +9,8 @@ from typing import Dict, List, Tuple, Optional
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTabWidget, QWidget, QTableWidget, QTableWidgetItem,
-    QFrame, QScrollArea, QComboBox, QHeaderView, QSizePolicy
+    QFrame, QScrollArea, QComboBox, QHeaderView, QSizePolicy,
+    QSlider, QSpinBox, QProgressBar
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QColor
@@ -154,15 +155,15 @@ class StatisticsDialog(QDialog):
         self.setup_overview_tab()
         self.tabs.addTab(self.overview_tab, "Übersicht")
 
-        # Food analysis tab
-        self.food_tab = QWidget()
-        self.setup_food_tab()
-        self.tabs.addTab(self.food_tab, "Lebensmittel-Analyse")
-
-        # Trends tab
+        # Trends tab with chart
         self.trends_tab = QWidget()
         self.setup_trends_tab()
-        self.tabs.addTab(self.trends_tab, "Trends")
+        self.tabs.addTab(self.trends_tab, "Verlauf")
+
+        # Pattern detection tab
+        self.patterns_tab = QWidget()
+        self.setup_patterns_tab()
+        self.tabs.addTab(self.patterns_tab, "Muster-Erkennung")
 
         layout.addWidget(self.tabs)
 
@@ -253,92 +254,63 @@ class StatisticsDialog(QDialog):
         layout.addWidget(foods_frame)
         layout.addStretch()
 
-    def setup_food_tab(self):
-        """Setup the food analysis tab"""
-        layout = QVBoxLayout(self.food_tab)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(16)
-
-        # Info text
-        info_label = QLabel(
-            "Diese Analyse zeigt, wie sich verschiedene Lebensmittel auf deinen Hautzustand auswirken könnten. "
-            "Lebensmittel mit höherer durchschnittlicher Schwere könnten Trigger sein."
-        )
-        info_label.setWordWrap(True)
-        info_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; padding: 10px; background-color: #FFF8E1; border-radius: 4px;")
-        layout.addWidget(info_label)
-
-        # Food correlation table
-        self.food_table = QTableWidget()
-        self.food_table.setColumnCount(4)
-        self.food_table.setHorizontalHeaderLabels([
-            "Lebensmittel", "Anzahl Tage", "Durchschnittliche Schwere", "Bewertung"
-        ])
-        self.food_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.food_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.food_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.food_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.food_table.setAlternatingRowColors(True)
-        self.food_table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #E0E0E0;
-                border-radius: 4px;
-                gridline-color: #F5F5F5;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-            QHeaderView::section {
-                background-color: #F5F5F5;
-                padding: 10px;
-                border: none;
-                border-bottom: 1px solid #E0E0E0;
-                font-weight: bold;
-            }
-        """)
-        self.food_table.verticalHeader().setVisible(False)
-        self.food_table.setSelectionBehavior(QTableWidget.SelectRows)
-
-        layout.addWidget(self.food_table)
-
     def setup_trends_tab(self):
-        """Setup the trends tab"""
+        """Setup the trends tab with chart"""
         layout = QVBoxLayout(self.trends_tab)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
-        # Weekly averages
-        weekly_frame = QFrame()
-        weekly_frame.setStyleSheet("""
+        # Chart frame
+        chart_frame = QFrame()
+        chart_frame.setStyleSheet("""
             QFrame {
                 background-color: white;
                 border: 1px solid #E0E0E0;
                 border-radius: 8px;
             }
         """)
-        weekly_layout = QVBoxLayout(weekly_frame)
-        weekly_layout.setContentsMargins(16, 16, 16, 16)
+        chart_layout = QVBoxLayout(chart_frame)
+        chart_layout.setContentsMargins(16, 16, 16, 16)
 
-        weekly_title = QLabel("Wöchentliche Durchschnitte")
-        weekly_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        weekly_layout.addWidget(weekly_title)
+        chart_title = QLabel("Verlauf der Hautzustände")
+        chart_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        chart_layout.addWidget(chart_title)
 
-        self.weekly_table = QTableWidget()
-        self.weekly_table.setColumnCount(3)
-        self.weekly_table.setHorizontalHeaderLabels(["Woche", "Durchschnitt", "Trend"])
-        self.weekly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.weekly_table.verticalHeader().setVisible(False)
-        self.weekly_table.setStyleSheet("""
-            QTableWidget {
-                border: none;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-        """)
-        weekly_layout.addWidget(self.weekly_table)
+        # Chart container with scroll
+        self.chart_container = QWidget()
+        self.chart_layout = QHBoxLayout(self.chart_container)
+        self.chart_layout.setContentsMargins(0, 20, 0, 40)
+        self.chart_layout.setSpacing(2)
+        self.chart_layout.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
 
-        layout.addWidget(weekly_frame)
+        chart_scroll = QScrollArea()
+        chart_scroll.setWidget(self.chart_container)
+        chart_scroll.setWidgetResizable(True)
+        chart_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        chart_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        chart_scroll.setMinimumHeight(250)
+        chart_scroll.setStyleSheet("QScrollArea { border: none; }")
+
+        chart_layout.addWidget(chart_scroll)
+
+        # Y-axis labels
+        y_axis_frame = QFrame()
+        y_axis_layout = QVBoxLayout(y_axis_frame)
+        y_axis_layout.setContentsMargins(0, 0, 8, 40)
+        y_axis_layout.setSpacing(0)
+        for i in range(5, 0, -1):
+            lbl = QLabel(str(i))
+            lbl.setFixedHeight(32)
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            lbl.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
+            y_axis_layout.addWidget(lbl)
+
+        chart_with_axis = QHBoxLayout()
+        chart_with_axis.addWidget(y_axis_frame)
+        chart_with_axis.addWidget(chart_scroll, stretch=1)
+        chart_layout.addLayout(chart_with_axis)
+
+        layout.addWidget(chart_frame, stretch=1)
 
         # Day of week analysis
         dow_frame = QFrame()
@@ -360,7 +332,187 @@ class StatisticsDialog(QDialog):
         dow_layout.addLayout(self.dow_bars_layout)
 
         layout.addWidget(dow_frame)
-        layout.addStretch()
+
+    def setup_patterns_tab(self):
+        """Setup the pattern detection tab"""
+        layout = QVBoxLayout(self.patterns_tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        # Info text
+        info_label = QLabel(
+            "Die Muster-Erkennung analysiert, ob bestimmte Lebensmittel mit einer Verschlechterung "
+            "des Hautzustands in den folgenden Tagen zusammenhängen. Je höher die Wahrscheinlichkeit, "
+            "desto öfter folgte auf dieses Lebensmittel ein schlechter Tag."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; padding: 10px; background-color: #E8F5E9; border-radius: 4px;")
+        layout.addWidget(info_label)
+
+        # Settings frame
+        settings_frame = QFrame()
+        settings_frame.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 1px solid #E0E0E0;
+                border-radius: 8px;
+            }
+        """)
+        settings_layout = QHBoxLayout(settings_frame)
+        settings_layout.setContentsMargins(16, 12, 16, 12)
+
+        # Delay days setting
+        delay_label = QLabel("Zeitfenster (Tage nach Verzehr):")
+        delay_label.setFont(QFont("Segoe UI", 11))
+
+        self.delay_spinbox = QSpinBox()
+        self.delay_spinbox.setRange(1, 5)
+        self.delay_spinbox.setValue(2)
+        self.delay_spinbox.setStyleSheet("""
+            QSpinBox {
+                padding: 6px 10px;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                min-width: 60px;
+            }
+        """)
+        self.delay_spinbox.valueChanged.connect(self.update_patterns)
+
+        # Severity threshold
+        threshold_label = QLabel("Schwellenwert (min. Schwere):")
+        threshold_label.setFont(QFont("Segoe UI", 11))
+
+        self.threshold_spinbox = QSpinBox()
+        self.threshold_spinbox.setRange(3, 5)
+        self.threshold_spinbox.setValue(4)
+        self.threshold_spinbox.setStyleSheet("""
+            QSpinBox {
+                padding: 6px 10px;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                min-width: 60px;
+            }
+        """)
+        self.threshold_spinbox.valueChanged.connect(self.update_patterns)
+
+        # Refresh button
+        refresh_btn = QPushButton("Aktualisieren")
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #1976D2;
+            }}
+        """)
+        refresh_btn.clicked.connect(self.update_patterns)
+
+        settings_layout.addWidget(delay_label)
+        settings_layout.addWidget(self.delay_spinbox)
+        settings_layout.addSpacing(20)
+        settings_layout.addWidget(threshold_label)
+        settings_layout.addWidget(self.threshold_spinbox)
+        settings_layout.addSpacing(20)
+        settings_layout.addWidget(refresh_btn)
+        settings_layout.addStretch()
+
+        layout.addWidget(settings_frame)
+
+        # Patterns table
+        patterns_frame = QFrame()
+        patterns_frame.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 1px solid #E0E0E0;
+                border-radius: 8px;
+            }
+        """)
+        patterns_layout = QVBoxLayout(patterns_frame)
+        patterns_layout.setContentsMargins(16, 16, 16, 16)
+
+        patterns_title = QLabel("Erkannte Muster")
+        patterns_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        patterns_layout.addWidget(patterns_title)
+
+        self.patterns_table = QTableWidget()
+        self.patterns_table.setColumnCount(4)
+        self.patterns_table.setHorizontalHeaderLabels([
+            "Lebensmittel", "Vorkommen", "Reaktionen", "Wahrscheinlichkeit"
+        ])
+        self.patterns_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.patterns_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.patterns_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.patterns_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.patterns_table.setAlternatingRowColors(True)
+        self.patterns_table.setStyleSheet("""
+            QTableWidget {
+                border: none;
+                gridline-color: #F5F5F5;
+            }
+            QTableWidget::item {
+                padding: 8px;
+            }
+            QHeaderView::section {
+                background-color: #F5F5F5;
+                padding: 10px;
+                border: none;
+                border-bottom: 1px solid #E0E0E0;
+                font-weight: bold;
+            }
+        """)
+        self.patterns_table.verticalHeader().setVisible(False)
+        self.patterns_table.setSelectionBehavior(QTableWidget.SelectRows)
+        patterns_layout.addWidget(self.patterns_table)
+
+        layout.addWidget(patterns_frame, stretch=1)
+
+    def update_patterns(self):
+        """Update the patterns table based on current settings"""
+        delay_days = self.delay_spinbox.value()
+        threshold = self.threshold_spinbox.value()
+
+        patterns = self.stats_calculator.detect_patterns(delay_days, threshold)
+        self.patterns_table.setRowCount(len(patterns))
+
+        for row, data in enumerate(patterns):
+            # Food name
+            name_item = QTableWidgetItem(data['food'])
+            self.patterns_table.setItem(row, 0, name_item)
+
+            # Occurrences
+            occ_item = QTableWidgetItem(str(data['total_occurrences']))
+            occ_item.setTextAlignment(Qt.AlignCenter)
+            self.patterns_table.setItem(row, 1, occ_item)
+
+            # Reactions
+            react_item = QTableWidgetItem(str(data['triggered_reactions']))
+            react_item.setTextAlignment(Qt.AlignCenter)
+            self.patterns_table.setItem(row, 2, react_item)
+
+            # Probability with progress bar style
+            prob = data['probability']
+            prob_text = f"{prob}%"
+
+            # Color based on probability
+            if prob >= 50:
+                color = COLOR_DANGER
+                rating = f"⚠️ {prob_text}"
+            elif prob >= 25:
+                color = COLOR_WARNING
+                rating = f"⚡ {prob_text}"
+            else:
+                color = COLOR_SUCCESS
+                rating = f"✓ {prob_text}"
+
+            prob_item = QTableWidgetItem(rating)
+            prob_item.setForeground(QColor(color))
+            prob_item.setTextAlignment(Qt.AlignCenter)
+            self.patterns_table.setItem(row, 3, prob_item)
 
     def get_selected_days(self) -> int:
         """Get the number of days for the selected time range"""
@@ -391,14 +543,14 @@ class StatisticsDialog(QDialog):
         # Update top foods
         self._update_top_foods(stats['top_foods'])
 
-        # Update food correlation table
-        self._update_food_table(stats['food_correlations'])
-
-        # Update weekly averages
-        self._update_weekly_table(stats['weekly_averages'])
+        # Update chart
+        self._update_chart()
 
         # Update day of week analysis
         self._update_dow_bars(stats['day_of_week_averages'])
+
+        # Update patterns
+        self.update_patterns()
 
     def _update_severity_bars(self, distribution: Dict[int, int]):
         """Update the severity distribution bars"""
@@ -407,6 +559,12 @@ class StatisticsDialog(QDialog):
             item = self.severity_bars_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                # Clear nested layout
+                while item.layout().count():
+                    sub = item.layout().takeAt(0)
+                    if sub.widget():
+                        sub.widget().deleteLater()
 
         total = sum(distribution.values()) or 1
         severity_labels = {
@@ -417,29 +575,30 @@ class StatisticsDialog(QDialog):
             count = distribution.get(severity, 0)
             percentage = (count / total) * 100
 
-            row = QHBoxLayout()
+            row_widget = QWidget()
+            row = QHBoxLayout(row_widget)
+            row.setContentsMargins(0, 2, 0, 2)
 
             label = QLabel(f"{severity} - {severity_labels[severity]}")
-            label.setFixedWidth(150)
+            label.setFixedWidth(130)
+            label.setStyleSheet(f"color: {COLOR_TEXT_PRIMARY}; font-size: 12px;")
 
-            bar_container = QFrame()
-            bar_container.setFixedHeight(24)
-            bar_container.setStyleSheet("background-color: #F5F5F5; border-radius: 4px;")
-
-            bar = QFrame(bar_container)
-            bar.setFixedHeight(24)
-            bar.setFixedWidth(int(percentage * 3))  # Scale factor
-            bar.setStyleSheet(f"background-color: {SEVERITY_COLORS[severity]}; border-radius: 4px;")
+            # Bar with background
+            bar = QFrame()
+            bar.setFixedHeight(20)
+            bar.setFixedWidth(max(int(percentage * 2.5), 4))
+            bar.setStyleSheet(f"background-color: {SEVERITY_COLORS[severity]}; border-radius: 3px;")
 
             count_label = QLabel(f"{count} ({percentage:.0f}%)")
-            count_label.setFixedWidth(80)
-            count_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
+            count_label.setFixedWidth(70)
+            count_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
 
             row.addWidget(label)
-            row.addWidget(bar_container, stretch=1)
+            row.addWidget(bar)
+            row.addStretch()
             row.addWidget(count_label)
 
-            self.severity_bars_layout.addLayout(row)
+            self.severity_bars_layout.addWidget(row_widget)
 
     def _update_top_foods(self, top_foods: List[Tuple[str, int]]):
         """Update the top foods list"""
@@ -448,6 +607,11 @@ class StatisticsDialog(QDialog):
             item = self.top_foods_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                while item.layout().count():
+                    sub = item.layout().takeAt(0)
+                    if sub.widget():
+                        sub.widget().deleteLater()
 
         if not top_foods:
             empty = QLabel("Keine Daten verfügbar")
@@ -458,108 +622,95 @@ class StatisticsDialog(QDialog):
         max_count = top_foods[0][1] if top_foods else 1
 
         for food, count in top_foods[:10]:
-            row = QHBoxLayout()
+            row_widget = QWidget()
+            row = QHBoxLayout(row_widget)
+            row.setContentsMargins(0, 2, 0, 2)
 
             name_label = QLabel(food)
-            name_label.setFixedWidth(150)
+            name_label.setFixedWidth(130)
+            name_label.setStyleSheet(f"color: {COLOR_TEXT_PRIMARY}; font-size: 12px;")
 
-            bar_width = int((count / max_count) * 200)
+            bar_width = max(int((count / max_count) * 150), 4)
             bar = QFrame()
-            bar.setFixedSize(bar_width, 20)
-            bar.setStyleSheet(f"background-color: {COLOR_PRIMARY}; border-radius: 4px;")
+            bar.setFixedSize(bar_width, 16)
+            bar.setStyleSheet(f"background-color: {COLOR_PRIMARY}; border-radius: 3px;")
 
             count_label = QLabel(f"{count}x")
-            count_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY};")
+            count_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 11px;")
 
             row.addWidget(name_label)
             row.addWidget(bar)
+            row.addSpacing(8)
             row.addWidget(count_label)
             row.addStretch()
 
-            self.top_foods_layout.addLayout(row)
+            self.top_foods_layout.addWidget(row_widget)
 
-    def _update_food_table(self, correlations: List[Dict]):
-        """Update the food correlation table"""
-        self.food_table.setRowCount(len(correlations))
+    def _update_chart(self):
+        """Update the severity chart with bars for each day"""
+        # Clear existing chart
+        while self.chart_layout.count():
+            item = self.chart_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        for row, data in enumerate(correlations):
-            # Food name
-            name_item = QTableWidgetItem(data['food'])
-            self.food_table.setItem(row, 0, name_item)
+        days = self.get_selected_days()
+        if days is None:
+            days = 90  # Max days for chart
+        days = min(days, 60)  # Limit to 60 days for readability
 
-            # Count
-            count_item = QTableWidgetItem(str(data['count']))
-            count_item.setTextAlignment(Qt.AlignCenter)
-            self.food_table.setItem(row, 1, count_item)
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days - 1)
 
-            # Average severity
-            avg = data['average_severity']
-            avg_item = QTableWidgetItem(f"{avg:.2f}")
-            avg_item.setTextAlignment(Qt.AlignCenter)
+        entries = self.data_manager.get_entries_in_range(start_date, end_date)
+        entry_map = {date.fromisoformat(e.date): e for e in entries}
 
-            # Color based on severity
-            if avg <= 2:
-                avg_item.setForeground(QColor(COLOR_SUCCESS))
-            elif avg >= 4:
-                avg_item.setForeground(QColor(COLOR_DANGER))
+        bar_height_max = 160  # pixels for severity 5
+
+        current = start_date
+        while current <= end_date:
+            entry = entry_map.get(current)
+
+            # Bar container
+            bar_widget = QWidget()
+            bar_layout = QVBoxLayout(bar_widget)
+            bar_layout.setContentsMargins(0, 0, 0, 0)
+            bar_layout.setSpacing(2)
+            bar_layout.setAlignment(Qt.AlignBottom)
+
+            if entry:
+                severity = entry.severity
+                bar_height = int((severity / 5) * bar_height_max)
+                color = SEVERITY_COLORS.get(severity, "#9E9E9E")
+
+                bar = QFrame()
+                bar.setFixedSize(12, bar_height)
+                bar.setStyleSheet(f"background-color: {color}; border-radius: 2px;")
+                bar.setToolTip(f"{current.strftime('%d.%m')}: Schwere {severity}")
+                bar_layout.addWidget(bar, alignment=Qt.AlignHCenter)
             else:
-                avg_item.setForeground(QColor(COLOR_WARNING))
+                # Empty placeholder
+                empty = QFrame()
+                empty.setFixedSize(12, 4)
+                empty.setStyleSheet("background-color: #E0E0E0; border-radius: 2px;")
+                bar_layout.addWidget(empty, alignment=Qt.AlignHCenter)
 
-            self.food_table.setItem(row, 2, avg_item)
-
-            # Rating
-            if avg <= 2:
-                rating = "✓ Verträglich"
-                color = COLOR_SUCCESS
-            elif avg <= 3:
-                rating = "○ Neutral"
-                color = COLOR_WARNING
+            # Date label (show every 7th day or first/last)
+            if current == start_date or current == end_date or current.weekday() == 0:
+                date_label = QLabel(current.strftime("%d.%m"))
+                date_label.setStyleSheet(f"color: {COLOR_TEXT_SECONDARY}; font-size: 9px;")
+                date_label.setAlignment(Qt.AlignCenter)
             else:
-                rating = "⚠ Möglicher Trigger"
-                color = COLOR_DANGER
+                date_label = QLabel("")
+                date_label.setFixedHeight(14)
 
-            rating_item = QTableWidgetItem(rating)
-            rating_item.setForeground(QColor(color))
-            self.food_table.setItem(row, 3, rating_item)
+            bar_layout.addWidget(date_label)
+            bar_widget.setFixedWidth(16)
 
-    def _update_weekly_table(self, weekly_data: List[Dict]):
-        """Update the weekly averages table"""
-        self.weekly_table.setRowCount(len(weekly_data))
+            self.chart_layout.addWidget(bar_widget)
+            current += timedelta(days=1)
 
-        prev_avg = None
-        for row, data in enumerate(weekly_data):
-            # Week label
-            week_item = QTableWidgetItem(data['week_label'])
-            self.weekly_table.setItem(row, 0, week_item)
-
-            # Average
-            avg = data['average']
-            avg_item = QTableWidgetItem(f"{avg:.2f}")
-            avg_item.setTextAlignment(Qt.AlignCenter)
-            self.weekly_table.setItem(row, 1, avg_item)
-
-            # Trend
-            if prev_avg is not None:
-                diff = avg - prev_avg
-                if diff < -0.3:
-                    trend = "↑ Besser"
-                    color = COLOR_SUCCESS
-                elif diff > 0.3:
-                    trend = "↓ Schlechter"
-                    color = COLOR_DANGER
-                else:
-                    trend = "→ Stabil"
-                    color = COLOR_TEXT_SECONDARY
-            else:
-                trend = "-"
-                color = COLOR_TEXT_SECONDARY
-
-            trend_item = QTableWidgetItem(trend)
-            trend_item.setForeground(QColor(color))
-            trend_item.setTextAlignment(Qt.AlignCenter)
-            self.weekly_table.setItem(row, 2, trend_item)
-
-            prev_avg = avg
+        self.chart_layout.addStretch()
 
     def _update_dow_bars(self, dow_data: Dict[int, float]):
         """Update the day of week bars"""
